@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Verification History{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Verification History</h1>
+    <p>All past writer verification checks.</p>
+</div>
+
+{% if results %}
+<table class="history-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Assignment 1</th>
+            <th>Assignment 2</th>
+            <th>Similarity</th>
+            <th>Decision</th>
+            <th>Risk</th>
+            <th>Date</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in results %}
+        <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.assignment1.original_name }}</td>
+            <td>{{ r.assignment2.original_name }}</td>
+            <td>{{ "%.1f"|format(r.similarity_score * 100) }}%</td>
+            <td>
+                <span class="badge {% if r.decision == 'Same Writer' %}badge-same{% else %}badge-diff{% endif %}">
+                    {{ r.decision }}
+                </span>
+            </td>
+            <td>
+                <span class="badge badge-risk-{{ r.risk_level | lower }}">{{ r.risk_level }}</span>
+            </td>
+            <td>{{ r.verified_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td><a href="{{ url_for('main.result_detail', result_id=r.id) }}">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>No verifications yet. <a href="{{ url_for('main.index') }}">Upload assignments</a> to get started.</p>
+</div>
+{% endif %}
+{% endblock %}

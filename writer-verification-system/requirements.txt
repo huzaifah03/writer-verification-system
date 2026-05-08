@@ -1,0 +1,30 @@
+# Web Framework
+flask==3.0.3
+flask-cors==4.0.1
+
+# Image Processing
+opencv-python==4.9.0.80
+Pillow==10.3.0
+scikit-image==0.23.2
+
+# Deep Learning
+torch==2.3.0
+torchvision==0.18.0
+
+# Traditional Feature Extraction & ML
+scikit-learn==1.5.0
+numpy==1.26.4
+scipy==1.13.0
+
+# Database
+flask-sqlalchemy==3.1.1
+
+# Utilities
+python-dotenv==1.0.1
+werkzeug==3.0.3
+
+# For Jupyter notebooks (training)
+jupyter==1.0.0
+matplotlib==3.9.0
+seaborn==0.13.2
+tqdm==4.66.4

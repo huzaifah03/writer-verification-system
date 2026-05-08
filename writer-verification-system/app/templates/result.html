@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Result #{{ result.id }} – Writer Verification{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Verification Report</h1>
+    <p>Result #{{ result.id }} — {{ result.verified_at.strftime('%B %d, %Y at %H:%M') }}</p>
+</div>
+
+<div class="result-detail-card">
+
+    <div class="result-files">
+        <div class="file-box">
+            <div class="file-label">Assignment 1</div>
+            <div class="file-name">{{ result.assignment1.original_name }}</div>
+        </div>
+        <div class="vs-divider">VS</div>
+        <div class="file-box">
+            <div class="file-label">Assignment 2</div>
+            <div class="file-name">{{ result.assignment2.original_name }}</div>
+        </div>
+    </div>
+
+    <hr />
+
+    <div class="result-summary">
+        <div class="stat-box">
+            <div class="stat-value">{{ "%.1f"|format(result.similarity_score * 100) }}%</div>
+            <div class="stat-label">Similarity Score</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value
+                {% if result.decision == 'Same Writer' %}text-danger{% else %}text-success{% endif %}">
+                {{ result.decision }}
+            </div>
+            <div class="stat-label">Decision</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value risk-{{ result.risk_level | lower }}">{{ result.risk_level }}</div>
+            <div class="stat-label">Risk Level</div>
+        </div>
+    </div>
+
+    <div class="result-explanation">
+        {% if result.decision == "Same Writer" %}
+        <p>⚠️ The system determined that both assignments were <strong>likely written by the same person</strong>
+        with a similarity score of <strong>{{ "%.1f"|format(result.similarity_score * 100) }}%</strong>.
+        This warrants further review by the instructor.</p>
+        {% else %}
+        <p>✅ The system determined that the two assignments were <strong>likely written by different people</strong>
+        with a similarity score of <strong>{{ "%.1f"|format(result.similarity_score * 100) }}%</strong>.</p>
+        {% endif %}
+    </div>
+
+    <a href="{{ url_for('main.index') }}" class="btn-secondary">← Run Another Check</a>
+    <a href="{{ url_for('main.history') }}" class="btn-secondary">View History</a>
+</div>
+{% endblock %}

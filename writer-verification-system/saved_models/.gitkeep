@@ -1,0 +1,2 @@
+This folder stores trained model weights (.pth files).
+It is excluded from git — only this placeholder is tracked.

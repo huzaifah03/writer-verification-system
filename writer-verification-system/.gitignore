@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Flask
+instance/
+.webassets-cache
+flask_session/
+
+# Uploads and model weights (too large for git)
+uploads/*
+!uploads/.gitkeep
+saved_models/*
+!saved_models/.gitkeep
+
+# Dataset (too large for git)
+data/
+datasets/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+*.env
+
+# SQLite database file
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
