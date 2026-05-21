@@ -28,7 +28,10 @@ saved_models/*
 !saved_models/.gitkeep
 
 # Dataset (too large for git)
-data/
+data/iam/*
+data/custom/*
+!data/iam/.gitkeep
+!data/custom/.gitkeep
 datasets/
 
 # Jupyter
@@ -40,6 +43,7 @@ datasets/
 .idea/
 *.sublime-project
 *.sublime-workspace
+.claude/
 
 # OS
 .DS_Store

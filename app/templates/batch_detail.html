@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Batch {{ batch.id }}: {{ batch.name }} — Writer Verification</title>
+    {% if batch.status in ["running", "pending"] %}
+    <meta http-equiv="refresh" content="5">
+    {% endif %}
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f6fa;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            color: #2d3748;
+        }
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        }
+        h1 { font-size: 1.4rem; color: #1a202c; margin-bottom: 0.25rem; }
+        h2 { font-size: 1.1rem; color: #1a202c; margin: 1.5rem 0 0.75rem; }
+        .meta { font-size: 0.85rem; color: #718096; margin-bottom: 1.25rem; }
+        .meta span { margin-right: 1.5rem; }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .badge-pending  { background: #e9d8fd; color: #553c9a; }
+        .badge-running  { background: #bee3f8; color: #2a69ac; }
+        .badge-completed{ background: #c6f6d5; color: #276749; }
+        .badge-failed   { background: #fed7d7; color: #c53030; }
+        /* Progress bar */
+        .progress-wrap {
+            background: #e2e8f0;
+            border-radius: 999px;
+            height: 14px;
+            overflow: hidden;
+            margin: 0.5rem 0 0.25rem;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #4a6cf7;
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+        .progress-label { font-size: 0.82rem; color: #718096; }
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        th {
+            background: #f7fafc;
+            padding: 0.6rem 0.8rem;
+            text-align: left;
+            font-size: 0.8rem;
+            color: #718096;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid #f0f4f8;
+            word-break: break-all;
+        }
+        tr:last-child td { border-bottom: none; }
+        .score-high   { color: #c53030; font-weight: 600; }
+        .score-medium { color: #d69e2e; font-weight: 600; }
+        .score-low    { color: #276749; font-weight: 600; }
+        /* Actions */
+        .actions { margin-top: 1.25rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        a.btn {
+            display: inline-block;
+            padding: 0.5rem 1.1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .btn-primary { background: #4a6cf7; color: #fff; }
+        .btn-primary:hover { background: #3a5ce4; }
+        .btn-outline { border: 1px solid #cbd5e0; color: #4a5568; background: #fff; }
+        .btn-outline:hover { background: #edf2f7; }
+        /* Refresh button */
+        .btn-refresh {
+            display: inline-block;
+            padding: 0.5rem 1.1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background: #4a6cf7;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-refresh:hover { background: #3a5ce4; }
+        /* Error state */
+        .error-box {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            color: #c53030;
+        }
+        .empty-note { color: #718096; font-size: 0.9rem; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>{{ batch.name }}</h1>
+    <div class="meta">
+        <span>Batch #{{ batch.id }}</span>
+        <span>
+            <span class="badge badge-{{ batch.status }}">{{ batch.status }}</span>
+        </span>
+        <span>Threshold: {{ batch.threshold }}</span>
+        <span>Samples: {{ batch.total_samples }}</span>
+        <span>Created: {{ batch.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        {% if batch.completed_at %}
+        <span>Completed: {{ batch.completed_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        {% endif %}
+    </div>
+
+    {# ------------------------------------------------------------------ #}
+    {# PENDING / RUNNING                                                   #}
+    {# ------------------------------------------------------------------ #}
+    {% if batch.status in ["running", "pending"] %}
+    <p style="margin-bottom: 0.75rem; font-size:0.95rem;">
+        Processing… This page refreshes automatically every 5 seconds.
+    </p>
+    <div class="progress-wrap">
+        <div class="progress-bar" style="width: {{ progress_percent }}%;"></div>
+    </div>
+    <p class="progress-label">
+        {{ total_completed }} / {{ batch.total_pairs }} pairs completed
+        ({{ progress_percent }}%)
+    </p>
+    <div class="actions">
+        <button class="btn-refresh" onclick="window.location.reload()">
+            Refresh now
+        </button>
+        <a href="{{ url_for('batch.batch_list') }}" class="btn btn-outline">
+            ← Back to batches
+        </a>
+    </div>
+
+    {# ------------------------------------------------------------------ #}
+    {# FAILED                                                              #}
+    {# ------------------------------------------------------------------ #}
+    {% elif batch.status == "failed" %}
+    <div class="error-box">
+        <strong>Processing failed.</strong> An error occurred during verification.
+        Check the server log for details. You may need to re-upload this batch.
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('batch.batch_list') }}" class="btn btn-outline">
+            ← Back to batches
+        </a>
+    </div>
+
+    {# ------------------------------------------------------------------ #}
+    {# COMPLETED                                                           #}
+    {# ------------------------------------------------------------------ #}
+    {% elif batch.status == "completed" %}
+    <div class="meta" style="margin-bottom:0;">
+        <span>Total pairs: {{ batch.total_pairs }}</span>
+        <span>Flagged pairs: <strong>{{ batch.flagged_pairs }}</strong></span>
+        <span>Pairs completed: {{ total_completed }}</span>
+    </div>
+
+    <h2>Flagged Pairs (similarity ≥ {{ batch.threshold }})</h2>
+    {% if flagged_pairs %}
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Sample 1</th>
+                <th>Sample 2</th>
+                <th>Score</th>
+                <th>Decision</th>
+                <th>Risk</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pair in flagged_pairs %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ pair.sample1.original_filename }}</td>
+                <td>{{ pair.sample2.original_filename }}</td>
+                <td class="score-{{ pair.risk_level | lower if pair.risk_level else 'low' }}">
+                    {{ "%.1f"|format(pair.similarity_score * 100) }}%
+                </td>
+                <td>{{ pair.decision }}</td>
+                <td>{{ pair.risk_level }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">No pairs exceeded the threshold — no flags raised.</p>
+    {% endif %}
+
+    <div class="actions">
+        <a href="{{ url_for('batch.batch_export_csv', batch_id=batch.id) }}"
+           class="btn btn-primary">
+            Download CSV (all pairs)
+        </a>
+        <a href="{{ url_for('batch.batch_list') }}" class="btn btn-outline">
+            ← Back to batches
+        </a>
+    </div>
+    {% endif %}
+</div>
+</body>
+</html>

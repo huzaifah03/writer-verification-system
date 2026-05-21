@@ -96,7 +96,7 @@ python training/train.py --data_dir data/processed --epochs 20 --batch_size 32
 ```
 
 ### Google Colab / Kaggle
-Open `training/train.ipynb` and follow the notebook cells. The notebook auto-detects GPU.
+Run `training/train.py` with the arguments shown above. The script auto-detects GPU.
 
 The trained model is saved to `saved_models/writer_verification_model.pth`.
 

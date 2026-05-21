@@ -11,6 +11,7 @@ Handles:
 import os
 import uuid
 from flask import Blueprint, request, jsonify, render_template, current_app
+from flask_login import login_required
 from werkzeug.utils import secure_filename
 from database.db import db, Assignment, VerificationResult
 from model.predict import verify_writers
@@ -43,12 +44,14 @@ def save_upload(file) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 @main.route("/")
+@login_required
 def index():
     """Render the upload page."""
     return render_template("index.html")
 
 
 @main.route("/history")
+@login_required
 def history():
     """Render past verification results."""
     results = VerificationResult.query.order_by(VerificationResult.verified_at.desc()).all()
@@ -56,6 +59,7 @@ def history():
 
 
 @main.route("/result/<int:result_id>")
+@login_required
 def result_detail(result_id):
     """Render a single verification result page."""
     result = VerificationResult.query.get_or_404(result_id)
@@ -67,6 +71,7 @@ def result_detail(result_id):
 # ---------------------------------------------------------------------------
 
 @main.route("/verify", methods=["POST"])
+@login_required
 def verify():
     """
     POST /verify

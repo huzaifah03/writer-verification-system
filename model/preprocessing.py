@@ -16,8 +16,28 @@ import torchvision.transforms as transforms
 from config import Config
 
 
+def _pdf_to_bgr(path: str) -> np.ndarray:
+    """
+    Render the first page of a PDF to a BGR numpy array.
+    Uses PyMuPDF (fitz) — no external binaries required.
+    Renders at 2× scale so fine handwriting strokes survive the
+    subsequent resize to 224×224.
+    """
+    import fitz  # pymupdf — imported lazily so non-PDF paths pay no cost
+    doc = fitz.open(path)
+    page = doc[0]
+    mat = fitz.Matrix(2.0, 2.0)
+    pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+    return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+
 def load_image(image_path: str) -> np.ndarray:
-    """Load an image from disk as a NumPy array (BGR)."""
+    """Load an image from disk as a NumPy array (BGR).
+    Accepts JPEG, PNG, and single-page PDF inputs.
+    """
+    if image_path.lower().endswith(".pdf"):
+        return _pdf_to_bgr(image_path)
     img = cv2.imread(image_path)
     if img is None:
         raise FileNotFoundError(f"Could not load image at: {image_path}")

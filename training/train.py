@@ -30,6 +30,8 @@ from torchvision import models, transforms
 from PIL import Image
 from sklearn.model_selection import train_test_split
 
+from model.feature_extractor import WriterEmbeddingNet
+
 
 # ---------------------------------------------------------------------------
 # Dataset — Pair Generator
@@ -92,30 +94,10 @@ class WriterPairDataset(Dataset):
 
 
 # ---------------------------------------------------------------------------
-# Model — ResNet50 Embedding Network
+# Model — WriterEmbeddingNet imported from model.feature_extractor
+# (single source of truth — architecture lives there, used by both
+#  training and inference)
 # ---------------------------------------------------------------------------
-
-class WriterEmbeddingNet(nn.Module):
-    """
-    ResNet50 with FC head replaced by a 256-dim embedding projection.
-    """
-
-    def __init__(self):
-        super().__init__()
-        backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-        self.features = nn.Sequential(*list(backbone.children())[:-1])  # Remove FC
-        self.embed = nn.Sequential(
-            nn.Linear(2048, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1)
-        return self.embed(x)
-
 
 class ContrastiveLoss(nn.Module):
     """

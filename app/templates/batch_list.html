@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Batches — Writer Verification System</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f6fa;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            color: #2d3748;
+        }
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 2rem;
+            max-width: 960px;
+            margin: 0 auto;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        }
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        h1 { font-size: 1.4rem; color: #1a202c; }
+        a.btn-new {
+            padding: 0.5rem 1.1rem;
+            background: #4a6cf7;
+            color: #fff;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        a.btn-new:hover { background: #3a5ce4; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        th {
+            background: #f7fafc;
+            padding: 0.6rem 0.9rem;
+            text-align: left;
+            font-size: 0.8rem;
+            color: #718096;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        td {
+            padding: 0.65rem 0.9rem;
+            border-bottom: 1px solid #f0f4f8;
+        }
+        tr:last-child td { border-bottom: none; }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.65rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 600;
+        }
+        .badge-pending  { background: #e9d8fd; color: #553c9a; }
+        .badge-running  { background: #bee3f8; color: #2a69ac; }
+        .badge-completed{ background: #c6f6d5; color: #276749; }
+        .badge-failed   { background: #fed7d7; color: #c53030; }
+        a.view-link {
+            color: #4a6cf7;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+        a.view-link:hover { text-decoration: underline; }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #718096;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="header-row">
+        <h1>My Batches</h1>
+        <a href="{{ url_for('batch.batch_new') }}" class="btn-new">+ New Batch</a>
+    </div>
+
+    {% if batches %}
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Samples</th>
+                <th>Pairs</th>
+                <th>Flagged</th>
+                <th>Created</th>
+                <th>Completed</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in batches %}
+            <tr>
+                <td>{{ b.id }}</td>
+                <td>{{ b.name }}</td>
+                <td><span class="badge badge-{{ b.status }}">{{ b.status }}</span></td>
+                <td>{{ b.total_samples }}</td>
+                <td>{{ b.total_pairs }}</td>
+                <td>{{ b.flagged_pairs }}</td>
+                <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    {% if b.completed_at %}
+                        {{ b.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('batch.batch_detail', batch_id=b.id) }}"
+                       class="view-link">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No batches yet.</p>
+        <p style="margin-top:0.5rem;">
+            <a href="{{ url_for('batch.batch_new') }}">Upload your first batch →</a>
+        </p>
+    </div>
+    {% endif %}
+</div>
+</body>
+</html>
