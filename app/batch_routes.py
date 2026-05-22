@@ -185,11 +185,12 @@ def batch_detail(batch_id):
         .all()
     )
 
-    flagged_pairs = (
+    # Pass ALL completed pairs; JS threshold slider handles client-side filtering
+    all_pairs = (
         BatchPair.query
         .filter(
             BatchPair.batch_id == batch_id,
-            BatchPair.similarity_score >= batch.threshold,
+            BatchPair.similarity_score.isnot(None),
         )
         .order_by(BatchPair.similarity_score.desc())
         .all()
@@ -201,7 +202,7 @@ def batch_detail(batch_id):
         "batch_detail.html",
         batch=batch,
         samples=samples,
-        flagged_pairs=flagged_pairs,
+        all_pairs=all_pairs,
         total_completed=total_completed,
         progress_percent=progress_percent,
     )

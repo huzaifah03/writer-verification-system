@@ -1,65 +1,87 @@
 {% extends "base.html" %}
-
-{% block title %}Upload Assignments – Writer Verification{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Handwriting Writer Verification</h1>
-    <p>Upload two handwritten assignment images to check if they were written by the same person.</p>
+<!-- Hero -->
+<div class="dash-hero">
+    <div>
+        <div class="hero-tag">Term · Spring 2026</div>
+        <h1>{{ greeting }},<br>Dr. <em>{{ current_user.name.split()[-1] }}</em>.</h1>
+        <p class="deck">
+            You have {{ total_batches }} batch{{ 'es' if total_batches != 1 else '' }} on record
+            {% if total_flagged > 0 %}and <strong>{{ total_flagged }}</strong> flagged pair{{ 's' if total_flagged != 1 else '' }} awaiting review.{% else %}and no flagged pairs at this time.{% endif %}
+        </p>
+    </div>
+    <div class="hero-stats">
+        <div class="hero-stat">
+            <div class="num">{{ total_samples }}</div>
+            <div class="lab">Samples processed</div>
+        </div>
+        <div class="hero-stat">
+            <div class="num">{{ total_batches }}</div>
+            <div class="lab">Batches run</div>
+        </div>
+        <div class="hero-stat">
+            <div class="num klein">{{ total_flagged }}</div>
+            <div class="lab">Flagged pairs</div>
+        </div>
+        <div class="hero-stat">
+            <div class="num">—</div>
+            <div class="lab">Model accuracy</div>
+        </div>
+    </div>
 </div>
 
-<div class="upload-card">
-    <form id="verifyForm" enctype="multipart/form-data">
+<!-- Action cards -->
+<div class="dash-actions">
+    <a href="{{ url_for('batch.batch_new') }}" class="action-card featured">
+        <div class="ac-tag">New · Recommended</div>
+        <div class="ac-title">Batch Analysis</div>
+        <div class="ac-meta">Upload up to 50 assignment images. The system compares every pair and flags writers appearing in more than one submission.</div>
+        <div class="ac-arrow">→</div>
+    </a>
+    <a href="{{ url_for('main.pairwise') }}" class="action-card">
+        <div class="ac-tag">Classic</div>
+        <div class="ac-title">Pairwise Compare</div>
+        <div class="ac-meta">Compare two handwritten samples directly. Best for confirming a single suspected case.</div>
+        <div class="ac-arrow">→</div>
+    </a>
+</div>
 
-        <div class="upload-grid">
-            <div class="upload-box" id="box1">
-                <label for="assignment1">
-                    <div class="upload-icon">📄</div>
-                    <div class="upload-label">Assignment 1</div>
-                    <div class="upload-hint">Click to upload (PNG / JPG)</div>
-                    <img id="preview1" class="preview-img hidden" alt="Preview 1" />
-                </label>
-                <input type="file" id="assignment1" name="assignment1"
-                       accept=".png,.jpg,.jpeg" required hidden />
-            </div>
-
-            <div class="vs-divider">VS</div>
-
-            <div class="upload-box" id="box2">
-                <label for="assignment2">
-                    <div class="upload-icon">📄</div>
-                    <div class="upload-label">Assignment 2</div>
-                    <div class="upload-hint">Click to upload (PNG / JPG)</div>
-                    <img id="preview2" class="preview-img hidden" alt="Preview 2" />
-                </label>
-                <input type="file" id="assignment2" name="assignment2"
-                       accept=".png,.jpg,.jpeg" required hidden />
+<!-- Recent batches -->
+<div class="dash-recent">
+    <div class="section-bar">
+        <h2>Recent batches</h2>
+        <a href="{{ url_for('batch.batch_list') }}" class="meta" style="color:var(--klein);">View all →</a>
+    </div>
+    {% if recent_batches %}
+    <div class="recent-table">
+        <div class="recent-row header">
+            <div>Batch ID</div>
+            <div>Name</div>
+            <div>Samples</div>
+            <div>Flagged</div>
+            <div style="text-align:right">Status</div>
+        </div>
+        {% for b in recent_batches %}
+        <div class="recent-row">
+            <div class="rid">#{{ b.id }}</div>
+            <div class="rname"><a href="{{ url_for('batch.batch_detail', batch_id=b.id) }}" style="color:inherit;">{{ b.name }}</a></div>
+            <div class="rsamp">{{ b.total_samples }}</div>
+            <div class="rflag {% if b.flagged_pairs > 0 %}klein{% else %}zero{% endif %}">{{ b.flagged_pairs }}</div>
+            <div class="rstatus">
+                {% if b.status == 'completed' %}<span class="pill done">Complete</span>
+                {% elif b.status == 'running'  %}<span class="pill run">Running</span>
+                {% elif b.status == 'pending'  %}<span class="pill queue">Pending</span>
+                {% else                        %}<span class="pill failed">Failed</span>{% endif %}
             </div>
         </div>
-
-        <button type="submit" class="btn-verify" id="submitBtn">
-            🔍 Verify Handwriting
-        </button>
-    </form>
-</div>
-
-<!-- Result Section (hidden until submission) -->
-<div id="resultSection" class="result-card hidden">
-    <h2>Verification Result</h2>
-    <div class="result-score">
-        <span id="scorePercent" class="score-number">—</span>
-        <span class="score-label">% Similarity</span>
+        {% endfor %}
     </div>
-    <div id="decisionBadge" class="decision-badge">—</div>
-    <div id="riskBadge" class="risk-badge">Risk Level: —</div>
-    <a id="detailLink" href="#" class="btn-secondary">View Full Report</a>
-</div>
-
-<!-- Error message -->
-<div id="errorMsg" class="error-box hidden"></div>
-
-<div id="loadingSpinner" class="spinner hidden">
-    <div class="spin"></div>
-    <p>Analysing handwriting…</p>
+    {% else %}
+    <div class="empty-state">
+        No batches yet. <a href="{{ url_for('batch.batch_new') }}">Start your first batch →</a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

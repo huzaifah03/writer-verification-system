@@ -3,22 +3,37 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Writer Verification System{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <title>{% block title %}ScriptVerify{% endblock %} · Iqra University</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">✍️ Writer Verification System</div>
-        <div class="nav-links">
-            <a href="{{ url_for('main.index') }}">Upload</a>
-            <a href="{{ url_for('main.history') }}">History</a>
+    <header class="head">
+        <a href="{{ url_for('main.index') }}" class="brand">
+            SCRIPT<sup>VERIFY</sup>
+            <small>Iqra University · CS</small>
+        </a>
+        <nav class="nav-strip">
+            <a href="{{ url_for('main.index') }}"
+               {% if request.endpoint == 'main.index' %}class="active"{% endif %}>Dashboard</a>
+            <a href="{{ url_for('batch.batch_list') }}"
+               {% if request.endpoint and request.endpoint.startswith('batch') %}class="active"{% endif %}>Batches</a>
+            <a href="{{ url_for('main.pairwise') }}"
+               {% if request.endpoint == 'main.pairwise' %}class="active"{% endif %}>Pairwise</a>
+        </nav>
+        <div class="head-right">
+            <span class="user-blob">{{ current_user.name.split()[0]|upper }}</span>
+            <form method="POST" action="{{ url_for('auth.logout') }}">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
         </div>
-    </nav>
+    </header>
 
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
+    {% block content %}{% endblock %}
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
