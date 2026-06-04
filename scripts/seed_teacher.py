@@ -28,7 +28,7 @@ def seed():
         alphabet = string.ascii_letters + string.digits
         password = "".join(secrets.choice(alphabet) for _ in range(12))
 
-        teacher = Teacher(email="teacher@iqra.edu.pk", name="Demo Teacher")
+        teacher = Teacher(email="teacher@iqra.edu.pk", name="Demo Teacher", is_admin=True)
         teacher.set_password(password)
         db.session.add(teacher)
         db.session.commit()

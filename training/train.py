@@ -144,8 +144,10 @@ def train(args):
     train_dataset = WriterPairDataset(train_dirs, transform=transform)
     val_dataset = WriterPairDataset(val_dirs, transform=transform, pairs_per_writer=5)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    # num_workers > 0 crashes on Windows unless inside if __name__ == "__main__"
+    workers = 0 if os.name == "nt" else 4
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=workers)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=workers)
 
     # Model, loss, optimizer
     model = WriterEmbeddingNet().to(device)

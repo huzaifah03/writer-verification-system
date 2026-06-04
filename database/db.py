@@ -64,6 +64,7 @@ class Teacher(UserMixin, db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     batches = db.relationship("Batch", backref="teacher", lazy=True)
@@ -145,3 +146,12 @@ def init_db(app):
     db.init_app(app)
     with app.app_context():
         db.create_all()
+        # Safe migration: add is_admin column if this is an existing DB that predates it
+        from sqlalchemy import inspect, text
+        insp = inspect(db.engine)
+        cols = [c["name"] for c in insp.get_columns("teachers")]
+        if "is_admin" not in cols:
+            db.session.execute(
+                text("ALTER TABLE teachers ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0")
+            )
+            db.session.commit()

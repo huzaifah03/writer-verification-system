@@ -17,6 +17,15 @@ def create_app():
     # Initialize database
     init_db(app)
 
+    # Ensure at least one admin exists — promote oldest teacher if none do
+    with app.app_context():
+        from database.db import Teacher, db as _db
+        if Teacher.query.count() > 0 and Teacher.query.filter_by(is_admin=True).count() == 0:
+            first = Teacher.query.order_by(Teacher.created_at).first()
+            first.is_admin = True
+            _db.session.commit()
+            app.logger.info(f"Promoted '{first.email}' to admin (no admin existed).")
+
     # Mark any batch left in "running" state by a prior crashed process as failed
     with app.app_context():
         from database.db import Batch, db as _db
@@ -47,5 +56,8 @@ def create_app():
     from app.batch_routes import batch_bp, api_bp
     app.register_blueprint(batch_bp)
     app.register_blueprint(api_bp)
+
+    from app.admin import admin_bp
+    app.register_blueprint(admin_bp)
 
     return app

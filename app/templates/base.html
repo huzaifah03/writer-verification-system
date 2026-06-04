@@ -23,6 +23,10 @@
                {% if request.endpoint and request.endpoint.startswith('batch') %}class="active"{% endif %}>Batches</a>
             <a href="{{ url_for('main.pairwise') }}"
                {% if request.endpoint == 'main.pairwise' %}class="active"{% endif %}>Pairwise</a>
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <a href="{{ url_for('admin.teacher_list') }}"
+               {% if request.endpoint and request.endpoint.startswith('admin') %}class="active"{% endif %}>Admin</a>
+            {% endif %}
         </nav>
         <div class="head-right">
             <span class="user-blob">{{ current_user.name.split()[0]|upper }}</span>
