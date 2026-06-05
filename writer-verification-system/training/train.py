@@ -127,8 +127,18 @@ def train(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    # Data transforms (training-time augmentation kept minimal for reproducibility)
-    transform = transforms.Compose([
+    # Training transform — augmentation for regularisation
+    train_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.Grayscale(num_output_channels=3),
+        transforms.RandomRotation(5),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2),
+        transforms.RandomHorizontalFlip(p=0.3),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    # Validation transform — no augmentation, deterministic
+    val_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.Grayscale(num_output_channels=3),
         transforms.ToTensor(),
@@ -148,8 +158,8 @@ def train(args):
                   f, indent=2)
     print("Saved writer split to saved_models/splits.json")
 
-    train_dataset = WriterPairDataset(train_dirs, transform=transform)
-    val_dataset = WriterPairDataset(val_dirs, transform=transform, pairs_per_writer=5)
+    train_dataset = WriterPairDataset(train_dirs, transform=train_transform)
+    val_dataset = WriterPairDataset(val_dirs, transform=val_transform, pairs_per_writer=5)
 
     # num_workers > 0 crashes on Windows unless inside if __name__ == "__main__"
     workers = 0 if os.name == "nt" else 4
