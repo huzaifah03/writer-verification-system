@@ -8,17 +8,22 @@ Usage:
     python training/train.py --data_dir data/processed --epochs 20 --batch_size 32
 
 Dataset expected structure:
-    data/
+    data/processed/
         writer_001/
             sample_01.png
             sample_02.png
         writer_002/
             ...
 
-The script generates pairs (same writer / different writer) automatically.
+The script generates pairs (same writer / different writer) automatically and
+uses a writer-level train/val/test split (see training/data_split.py). The test
+writers are held out entirely from training and are recorded in
+saved_models/splits.json so that scripts/evaluate.py can evaluate on exactly the
+same unseen writers.
 """
 
 import os
+import json
 import argparse
 import random
 import numpy as np
@@ -26,9 +31,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from torchvision import models, transforms
+from torchvision import transforms
 from PIL import Image
-from sklearn.model_selection import train_test_split
+
+from model.feature_extractor import WriterEmbeddingNet
+from training.data_split import get_writer_splits
 
 
 # ---------------------------------------------------------------------------
@@ -38,14 +45,13 @@ from sklearn.model_selection import train_test_split
 class WriterPairDataset(Dataset):
     """
     Generates (image1, image2, label) triplets.
-    label = 1 → Same Writer, label = 0 → Different Writer
+    label = 1 -> Same Writer, label = 0 -> Different Writer
     """
 
     def __init__(self, writer_dirs: list, transform=None, pairs_per_writer: int = 10):
         self.transform = transform
         self.pairs = []
 
-        # Build pairs
         all_writers = {d: self._get_images(d) for d in writer_dirs}
         writer_list = list(all_writers.keys())
 
@@ -92,30 +98,10 @@ class WriterPairDataset(Dataset):
 
 
 # ---------------------------------------------------------------------------
-# Model — ResNet50 Embedding Network
+# Model — WriterEmbeddingNet imported from model.feature_extractor
+# (single source of truth — architecture lives there, used by both
+#  training and inference)
 # ---------------------------------------------------------------------------
-
-class WriterEmbeddingNet(nn.Module):
-    """
-    ResNet50 with FC head replaced by a 256-dim embedding projection.
-    """
-
-    def __init__(self):
-        super().__init__()
-        backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-        self.features = nn.Sequential(*list(backbone.children())[:-1])  # Remove FC
-        self.embed = nn.Sequential(
-            nn.Linear(2048, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1)
-        return self.embed(x)
-
 
 class ContrastiveLoss(nn.Module):
     """
@@ -141,7 +127,7 @@ def train(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    # Data transforms
+    # Data transforms (training-time augmentation kept minimal for reproducibility)
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.Grayscale(num_output_channels=3),
@@ -149,21 +135,26 @@ def train(args):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
-    # Discover writer directories
-    writer_dirs = [
-        os.path.join(args.data_dir, d)
-        for d in os.listdir(args.data_dir)
-        if os.path.isdir(os.path.join(args.data_dir, d))
-    ]
-    print(f"Found {len(writer_dirs)} writers.")
+    # Writer-level 3-way split (train / val / test). Test writers are held out
+    # entirely and only used later by scripts/evaluate.py.
+    train_dirs, val_dirs, test_dirs = get_writer_splits(args.data_dir, seed=42)
+    print(f"Writers — train: {len(train_dirs)}, val: {len(val_dirs)}, "
+          f"test (held out, not used in training): {len(test_dirs)}")
 
-    train_dirs, val_dirs = train_test_split(writer_dirs, test_size=0.2, random_state=42)
+    # Persist the split so evaluation uses exactly the same held-out writers.
+    os.makedirs("saved_models", exist_ok=True)
+    with open(os.path.join("saved_models", "splits.json"), "w", encoding="utf-8") as f:
+        json.dump({"seed": 42, "train": train_dirs, "val": val_dirs, "test": test_dirs},
+                  f, indent=2)
+    print("Saved writer split to saved_models/splits.json")
 
     train_dataset = WriterPairDataset(train_dirs, transform=transform)
     val_dataset = WriterPairDataset(val_dirs, transform=transform, pairs_per_writer=5)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    # num_workers > 0 crashes on Windows unless inside if __name__ == "__main__"
+    workers = 0 if os.name == "nt" else 4
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=workers)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=workers)
 
     # Model, loss, optimizer
     model = WriterEmbeddingNet().to(device)
@@ -172,7 +163,6 @@ def train(args):
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
     best_val_loss = float("inf")
-    os.makedirs("saved_models", exist_ok=True)
 
     for epoch in range(1, args.epochs + 1):
         # --- Train ---
@@ -196,8 +186,8 @@ def train(args):
                 emb1, emb2 = model(img1), model(img2)
                 val_loss += criterion(emb1, emb2, labels).item()
 
-        train_loss /= len(train_loader)
-        val_loss /= len(val_loader)
+        train_loss /= max(len(train_loader), 1)
+        val_loss /= max(len(val_loader), 1)
         scheduler.step()
 
         print(f"Epoch [{epoch}/{args.epochs}]  Train Loss: {train_loss:.4f}  Val Loss: {val_loss:.4f}")
@@ -206,7 +196,7 @@ def train(args):
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), "saved_models/writer_verification_model.pth")
-            print(f"  ✅ Best model saved (val_loss={val_loss:.4f})")
+            print(f"  Best model saved (val_loss={val_loss:.4f})")
 
     print("Training complete.")
 

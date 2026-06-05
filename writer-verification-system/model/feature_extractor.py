@@ -10,6 +10,7 @@ Combines:
 Final feature vector = concatenation of CNN features + HOG features.
 """
 
+import os
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -108,6 +109,60 @@ def extract_hog_features(image_path: str) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Combined Hybrid Feature Extraction
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Siamese Embedding Network (trained for writer verification)
+# ---------------------------------------------------------------------------
+
+class WriterEmbeddingNet(nn.Module):
+    """
+    ResNet50 backbone with a 256-dim projection head.
+    This is the trainable model — weights are learned via contrastive loss.
+    """
+
+    def __init__(self):
+        super().__init__()
+        backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+        self.features = nn.Sequential(*list(backbone.children())[:-1])
+        self.embed = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        return self.embed(x)
+
+
+_siamese_extractor = None
+
+
+def get_siamese_extractor(device: str = "cpu", model_path: str = None) -> WriterEmbeddingNet:
+    """Return a cached WriterEmbeddingNet, loading weights if a path is given."""
+    global _siamese_extractor
+    if _siamese_extractor is None:
+        _siamese_extractor = WriterEmbeddingNet()
+        if model_path and os.path.isfile(model_path):
+            state = torch.load(model_path, map_location=device)
+            _siamese_extractor.load_state_dict(state)
+        _siamese_extractor.eval()
+        _siamese_extractor.to(device)
+    return _siamese_extractor
+
+
+def extract_siamese_features(image_tensor: torch.Tensor,
+                              extractor: WriterEmbeddingNet,
+                              device: str = "cpu") -> np.ndarray:
+    """Run the Siamese net on a preprocessed image tensor, return 256-d numpy array."""
+    extractor.eval()
+    image_tensor = image_tensor.to(device)
+    with torch.no_grad():
+        embedding = extractor(image_tensor)
+    return embedding.squeeze().cpu().numpy()
+
 
 _cnn_extractor = None  # Singleton — loaded once per process
 
