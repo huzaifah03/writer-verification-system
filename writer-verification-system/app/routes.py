@@ -10,9 +10,11 @@ Handles:
 
 import os
 import uuid
+from datetime import datetime
 from flask import Blueprint, request, jsonify, render_template, current_app
+from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from database.db import db, Assignment, VerificationResult
+from database.db import db, Assignment, VerificationResult, Batch, BatchSample
 from model.predict import verify_writers
 
 main = Blueprint("main", __name__)
@@ -43,12 +45,52 @@ def save_upload(file) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 @main.route("/")
+@login_required
 def index():
-    """Render the upload page."""
-    return render_template("index.html")
+    """Dashboard — stats + action cards + recent batches."""
+    hour = datetime.now().hour
+    if hour < 12:
+        greeting = "Good morning"
+    elif hour < 17:
+        greeting = "Good afternoon"
+    else:
+        greeting = "Good evening"
+
+    total_samples = (
+        BatchSample.query
+        .join(Batch, BatchSample.batch_id == Batch.id)
+        .filter(Batch.teacher_id == current_user.id)
+        .count()
+    )
+    total_batches  = Batch.query.filter_by(teacher_id=current_user.id).count()
+    total_flagged  = db.session.query(
+        db.func.coalesce(db.func.sum(Batch.flagged_pairs), 0)
+    ).filter(Batch.teacher_id == current_user.id).scalar()
+    recent_batches = (
+        Batch.query
+        .filter_by(teacher_id=current_user.id)
+        .order_by(Batch.created_at.desc())
+        .limit(5).all()
+    )
+    return render_template(
+        "index.html",
+        greeting=greeting,
+        total_samples=total_samples,
+        total_batches=total_batches,
+        total_flagged=total_flagged,
+        recent_batches=recent_batches,
+    )
+
+
+@main.route("/pairwise")
+@login_required
+def pairwise():
+    """Pairwise two-image comparison page."""
+    return render_template("pairwise.html")
 
 
 @main.route("/history")
+@login_required
 def history():
     """Render past verification results."""
     results = VerificationResult.query.order_by(VerificationResult.verified_at.desc()).all()
@@ -56,6 +98,7 @@ def history():
 
 
 @main.route("/result/<int:result_id>")
+@login_required
 def result_detail(result_id):
     """Render a single verification result page."""
     result = VerificationResult.query.get_or_404(result_id)
@@ -67,6 +110,7 @@ def result_detail(result_id):
 # ---------------------------------------------------------------------------
 
 @main.route("/verify", methods=["POST"])
+@login_required
 def verify():
     """
     POST /verify

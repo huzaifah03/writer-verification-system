@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}New Batch{% endblock %}
+
+{% block content %}
+<!-- Step strip -->
+<div class="step-strip">
+    <div class="step active">
+        <div class="step-num">1</div>
+        <div class="step-label">
+            <div class="lab">Step 1 of 3</div>
+            <div class="title">Upload samples</div>
+        </div>
+    </div>
+    <div class="step future">
+        <div class="step-num">2</div>
+        <div class="step-label">
+            <div class="lab">Step 2 of 3</div>
+            <div class="title">Analysis running</div>
+        </div>
+    </div>
+    <div class="step future">
+        <div class="step-num">3</div>
+        <div class="step-label">
+            <div class="lab">Step 3 of 3</div>
+            <div class="title">Review results</div>
+        </div>
+    </div>
+</div>
+
+<div class="upload-work">
+    <!-- Left column -->
+    <div class="upload-main">
+        <div class="pagehead">
+            <h1>New <em>batch</em>.</h1>
+            <p class="sub">Add up to 50 handwritten samples. The system compares every possible pair and flags those exceeding your similarity threshold.</p>
+        </div>
+
+        <div id="errorBox" class="error-box hidden" style="margin-bottom:14px;"></div>
+
+        {% for msg in get_flashed_messages(category_filter=["error"]) %}
+        <div class="error-box" style="margin-bottom:14px;">{{ msg }}</div>
+        {% endfor %}
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">↑</div>
+            <h3>Drop files here</h3>
+            <p>or <label for="fileInput" style="color:var(--klein);cursor:pointer;font-weight:600;">click to browse</label></p>
+            <div class="formats">JPG · JPEG · PNG · PDF · Max 16 MB each</div>
+        </div>
+        <!-- File input lives outside the drop zone so click events don't bubble oddly -->
+        <input type="file" id="fileInput" multiple
+               accept=".jpg,.jpeg,.png,.pdf"
+               style="display:none" />
+
+        <!-- Options -->
+        <div class="options-panel" style="margin-top:16px;">
+            <h4>Batch settings</h4>
+            <div class="opt-row">
+                <div>
+                    <label for="batchName">Batch name</label>
+                    <div class="opt-hint">Used for record-keeping.</div>
+                </div>
+                <input type="text" id="batchName" name="name"
+                       placeholder="e.g. CS101 Assignment 3"
+                       maxlength="200" />
+            </div>
+            <div class="opt-row">
+                <div>
+                    <label>Similarity threshold</label>
+                    <div class="opt-hint">Pairs above this score are flagged.</div>
+                </div>
+                <div class="range-wrap">
+                    <input type="range" id="thresholdSlider" min="0" max="100" value="75" />
+                    <strong id="thresholdDisplay">0.75</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column — files panel -->
+    <div class="files-panel">
+        <div class="files-head">
+            <h3>Queued samples</h3>
+            <span class="count" id="fileCount">0 / 50</span>
+        </div>
+        <div class="files-list" id="fileList">
+            <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;" id="emptyHint">
+                No files yet. Drop or browse to add.
+            </div>
+        </div>
+        <div class="files-footer">
+            <div class="note"><strong id="pairCount">0</strong> pairs will be compared</div>
+            <button type="button" class="btn small" id="clearAll">Clear all</button>
+        </div>
+    </div>
+</div>
+
+<!-- CTA bar -->
+<div class="upload-cta">
+    <div class="summary">
+        Ready to analyze <span id="ctaSamples">0</span> samples ·
+        <span id="ctaPairs">0</span> pairs total.
+    </div>
+    <button type="button" class="btn large" id="submitBtn" disabled
+            onclick="submitBatch()">Start Analysis →</button>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let files = []; // plain JS array of File objects
+
+// ── DOM refs ───────────────────────────────────────────────────────
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('fileInput');
+const fileList   = document.getElementById('fileList');
+const fileCount  = document.getElementById('fileCount');
+const pairCount  = document.getElementById('pairCount');
+const ctaSamples = document.getElementById('ctaSamples');
+const ctaPairs   = document.getElementById('ctaPairs');
+const submitBtn  = document.getElementById('submitBtn');
+const clearBtn   = document.getElementById('clearAll');
+const emptyHint  = document.getElementById('emptyHint');
+const errBox     = document.getElementById('errorBox');
+const slider     = document.getElementById('thresholdSlider');
+const display    = document.getElementById('thresholdDisplay');
+
+// ── Threshold slider ───────────────────────────────────────────────
+slider.addEventListener('input', () => {
+    display.textContent = (slider.value / 100).toFixed(2);
+});
+
+// ── Drop zone: click opens file picker ─────────────────────────────
+dropZone.addEventListener('click', () => fileInput.click());
+
+// ── Drag-and-drop ──────────────────────────────────────────────────
+dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    addFiles(Array.from(e.dataTransfer.files));
+});
+
+// ── File picker ────────────────────────────────────────────────────
+fileInput.addEventListener('change', () => {
+    addFiles(Array.from(fileInput.files));
+    fileInput.value = ''; // reset so same file can be re-added later if needed
+});
+
+// ── Clear all ──────────────────────────────────────────────────────
+clearBtn.addEventListener('click', () => { files = []; render(); });
+
+// ── Add files to state ─────────────────────────────────────────────
+function addFiles(incoming) {
+    const allowed = /\.(jpg|jpeg|png|pdf)$/i;
+    incoming.forEach(f => {
+        if (!allowed.test(f.name)) return;
+        if (files.length >= 50) return;
+        // Deduplicate by name+size
+        if (!files.find(x => x.name === f.name && x.size === f.size)) {
+            files.push(f);
+        }
+    });
+    render();
+}
+
+// ── Render file list ───────────────────────────────────────────────
+function render() {
+    const n     = files.length;
+    const pairs = n > 1 ? n * (n - 1) / 2 : 0;
+
+    fileCount.textContent  = `${n} / 50`;
+    pairCount.textContent  = pairs;
+    ctaSamples.textContent = n;
+    ctaPairs.textContent   = pairs;
+    submitBtn.disabled     = n < 2;
+    emptyHint.style.display = n === 0 ? 'block' : 'none';
+
+    fileList.querySelectorAll('.file-item').forEach(el => el.remove());
+
+    files.forEach((file, idx) => {
+        const row   = document.createElement('div');
+        row.className = 'file-item';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'file-thumb';
+        if (file.type.startsWith('image/')) {
+            const img    = document.createElement('img');
+            const reader = new FileReader();
+            reader.onload = e => { img.src = e.target.result; };
+            reader.readAsDataURL(file);
+            thumb.appendChild(img);
+        } else {
+            thumb.innerHTML = '<svg viewBox="0 0 40 26"><text x="2" y="18" font-size="9" font-family="monospace" fill="var(--muted)">PDF</text></svg>';
+        }
+
+        const name = document.createElement('div');
+        name.className   = 'file-name';
+        name.textContent = file.name;
+
+        const size = document.createElement('div');
+        size.className   = 'file-size';
+        size.textContent = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+
+        const rm = document.createElement('div');
+        rm.className   = 'file-remove';
+        rm.textContent = '×';
+        rm.addEventListener('click', () => {
+            files.splice(idx, 1);
+            render();
+        });
+
+        row.append(thumb, name, size, rm);
+        fileList.appendChild(row);
+    });
+}
+
+// ── Submit via fetch (builds FormData from JS array) ──────────────
+async function submitBatch() {
+    const name = document.getElementById('batchName').value.trim();
+    if (!name) {
+        showError('Please enter a batch name.');
+        return;
+    }
+    if (files.length < 2) {
+        showError('Please add at least 2 files.');
+        return;
+    }
+
+    submitBtn.disabled     = true;
+    submitBtn.textContent  = 'Uploading…';
+    errBox.classList.add('hidden');
+
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('threshold', (slider.value / 100).toFixed(2));
+    files.forEach(f => fd.append('samples', f));
+
+    try {
+        const resp = await fetch('{{ url_for("batch.batch_new") }}', {
+            method: 'POST',
+            body: fd
+        });
+        if (resp.redirected) {
+            window.location.href = resp.url;
+        } else if (resp.ok) {
+            window.location.href = resp.url || '/batches/';
+        } else {
+            // Server returned an error — parse the flash message from response text
+            showError('Upload failed — check your files and try again.');
+            submitBtn.disabled    = false;
+            submitBtn.textContent = 'Start Analysis →';
+        }
+    } catch (err) {
+        showError('Network error. Please try again.');
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Start Analysis →';
+    }
+}
+
+function showError(msg) {
+    errBox.textContent = msg;
+    errBox.classList.remove('hidden');
+}
+
+render();
+</script>
+{% endblock %}

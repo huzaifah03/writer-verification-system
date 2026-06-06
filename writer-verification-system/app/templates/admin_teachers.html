@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Admin · Teachers{% endblock %}
+
+{% block content %}
+<div class="history-page">
+
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;">
+        <div>
+            <h1 style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700;margin:0;">
+                Teacher <em style="font-style:italic;color:var(--klein);">Accounts</em>
+            </h1>
+            <p style="color:var(--muted);font-size:13px;margin-top:4px;">
+                {{ teachers|length }} account{{ 's' if teachers|length != 1 else '' }} registered
+            </p>
+        </div>
+    </div>
+
+    {% for msg in get_flashed_messages(category_filter=["success"]) %}
+    <div style="background:var(--ink);color:#fff;padding:12px 16px;font-size:13px;margin-bottom:16px;font-family:'Space Grotesk',sans-serif;">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% for msg in get_flashed_messages(category_filter=["error"]) %}
+    <div class="error-box" style="margin-bottom:16px;">{{ msg }}</div>
+    {% endfor %}
+
+    <!-- Teacher table -->
+    <table class="editorial-table" style="margin-bottom:40px;">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Reset Password</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in teachers %}
+            <tr>
+                <td class="mono">{{ t.id }}</td>
+                <td style="font-weight:600;">{{ t.name }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">{{ t.email }}</td>
+                <td>
+                    {% if t.is_admin %}
+                    <span class="badge high" style="font-size:10px;padding:3px 8px;">Admin</span>
+                    {% else %}
+                    <span class="badge low" style="font-size:10px;padding:3px 8px;">Teacher</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--muted);">{{ t.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <form method="POST"
+                          action="{{ url_for('admin.teacher_reset', teacher_id=t.id) }}"
+                          style="display:flex;gap:6px;align-items:center;">
+                        <input type="password" name="new_password"
+                               placeholder="New password"
+                               style="font-size:12px;padding:5px 8px;border:1.5px solid var(--ink);outline:none;width:140px;" />
+                        <button type="submit" class="btn small">Reset</button>
+                    </form>
+                </td>
+                <td>
+                    {% if t.id != current_user.id %}
+                    <form method="POST"
+                          action="{{ url_for('admin.teacher_delete', teacher_id=t.id) }}"
+                          onsubmit="return confirm('Delete {{ t.name }}? This cannot be undone.');">
+                        <button type="submit" class="btn small"
+                                style="border-color:#c0392b;color:#c0392b;">Delete</button>
+                    </form>
+                    {% else %}
+                    <span style="font-size:11px;color:var(--muted);">You</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Add Teacher form -->
+    <div class="options-panel" style="max-width:520px;">
+        <h4>Add Teacher Account</h4>
+        <form method="POST" action="{{ url_for('admin.teacher_new') }}">
+            <div class="opt-row">
+                <label for="newName">Full name</label>
+                <input type="text" id="newName" name="name"
+                       placeholder="e.g. Dr. Ayesha Khan"
+                       maxlength="255" required />
+            </div>
+            <div class="opt-row">
+                <label for="newEmail">Email address</label>
+                <input type="email" id="newEmail" name="email"
+                       placeholder="teacher@iqra.edu.pk"
+                       maxlength="255" required />
+            </div>
+            <div class="opt-row">
+                <label for="newPassword">Password</label>
+                <input type="password" id="newPassword" name="password"
+                       placeholder="Minimum 8 characters"
+                       minlength="6" required />
+            </div>
+            <div class="opt-row">
+                <div>
+                    <label>Admin privileges</label>
+                    <div class="opt-hint">Admins can manage teacher accounts.</div>
+                </div>
+                <input type="checkbox" id="newIsAdmin" name="is_admin"
+                       style="width:auto;accent-color:var(--klein);" />
+            </div>
+            <div style="margin-top:16px;">
+                <button type="submit" class="btn primary">Add Teacher</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

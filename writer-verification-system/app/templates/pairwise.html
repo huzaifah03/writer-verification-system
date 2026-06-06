@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Pairwise Compare{% endblock %}
+
+{% block content %}
+<div class="pairwise-page">
+    <div class="pagehead">
+        <h1>Pairwise <em style="background:var(--klein);color:white;font-style:normal;padding:0 6px;">compare</em>.</h1>
+        <p>Upload two handwritten assignment images to check whether they were written by the same person.</p>
+    </div>
+
+    <div class="upload-card">
+        <form id="verifyForm" enctype="multipart/form-data">
+            <div class="upload-grid">
+                <div class="upload-box" id="box1">
+                    <label for="assignment1">
+                        <div class="upload-icon">📄</div>
+                        <div class="upload-label">Assignment 1</div>
+                        <div class="upload-hint">Click to upload (PNG / JPG / PDF)</div>
+                        <img id="preview1" class="preview-img hidden" alt="Preview 1" />
+                    </label>
+                    <input type="file" id="assignment1" name="assignment1"
+                           accept=".png,.jpg,.jpeg,.pdf" required hidden />
+                </div>
+                <div class="vs-divider">VS</div>
+                <div class="upload-box" id="box2">
+                    <label for="assignment2">
+                        <div class="upload-icon">📄</div>
+                        <div class="upload-label">Assignment 2</div>
+                        <div class="upload-hint">Click to upload (PNG / JPG / PDF)</div>
+                        <img id="preview2" class="preview-img hidden" alt="Preview 2" />
+                    </label>
+                    <input type="file" id="assignment2" name="assignment2"
+                           accept=".png,.jpg,.jpeg,.pdf" required hidden />
+                </div>
+            </div>
+            <button type="submit" class="btn-verify" id="submitBtn">Verify Handwriting →</button>
+        </form>
+    </div>
+
+    <div id="resultSection" class="result-card hidden">
+        <h2>Verification Result</h2>
+        <div class="result-score">
+            <span id="scorePercent" class="score-number">—</span>
+            <span class="score-label">% Similarity</span>
+        </div>
+        <div id="decisionBadge" class="decision-badge">—</div>
+        <div id="riskBadge" style="font-size:0.85rem;color:var(--muted);margin-bottom:12px;">Risk Level: —</div>
+        <a id="detailLink" href="#" class="btn-secondary">View Full Report</a>
+    </div>
+
+    <div id="errorMsg" class="error-box hidden"></div>
+    <div id="loadingSpinner" class="spin-wrap hidden">
+        <div class="spin"></div>
+        <p>Analysing handwriting…</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}
