@@ -78,7 +78,14 @@ def preprocess_for_model(image_path: str):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225]),
     ])
-    img = Image.open(image_path).convert("RGB")
+    if image_path.lower().endswith(".pdf"):
+        import fitz
+        doc = fitz.open(image_path)
+        pix = doc[0].get_pixmap(dpi=150)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        doc.close()
+    else:
+        img = Image.open(image_path).convert("RGB")
     return transform(img).unsqueeze(0)  # shape (1, 3, 224, 224)
 
 

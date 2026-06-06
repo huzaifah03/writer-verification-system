@@ -23,6 +23,7 @@ class Config:
     # Image preprocessing
     IMAGE_SIZE = (224, 224)  # ResNet50 input size
 
-    # Similarity threshold — ROC-optimal from evaluation (Youden J, hybrid mode)
+    # Similarity threshold — Run-2 hybrid ROC-optimal (Youden J, 26500-d hybrid mode)
+    # Acc=0.814, F1=0.822 on 98 held-out test writers.
     # Scores ABOVE this → Same Writer, BELOW → Different Writer
-    SIMILARITY_THRESHOLD = 0.764
+    SIMILARITY_THRESHOLD = 0.623

@@ -7,8 +7,9 @@ It orchestrates the full pipeline:
 """
 
 import torch
+from config import Config
 from model.preprocessing import preprocess_for_model
-from model.feature_extractor import extract_hybrid_features
+from model.feature_extractor import extract_siamese_hybrid_features
 from model.similarity import compare_features
 
 
@@ -42,9 +43,9 @@ def verify_writers(image_path1: str, image_path2: str) -> dict:
     tensor1 = preprocess_for_model(image_path1)
     tensor2 = preprocess_for_model(image_path2)
 
-    # Step 2: Extract hybrid features (CNN + HOG) for each
-    features1 = extract_hybrid_features(image_path1, tensor1, device)
-    features2 = extract_hybrid_features(image_path2, tensor2, device)
+    # Step 2: Extract trained Siamese + HOG hybrid features for each
+    features1 = extract_siamese_hybrid_features(image_path1, tensor1, device, Config.MODEL_PATH)
+    features2 = extract_siamese_hybrid_features(image_path2, tensor2, device, Config.MODEL_PATH)
 
     # Step 3: Compare and return result
     result = compare_features(features1, features2)
