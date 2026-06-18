@@ -1,12 +1,10 @@
 """
 Image Preprocessing Module
 ---------------------------
-Applies the following pipeline to each uploaded handwriting image:
-1. Load image
-2. Convert to grayscale
-3. Denoise (Gaussian blur)
-4. Binarize (Otsu thresholding)
-5. Normalize and resize for ResNet50 input
+preprocess_for_model: resize -> 3-ch grayscale -> ToTensor -> ImageNet normalise.
+  Matches WriterPairDataset's training transform exactly to avoid distribution mismatch.
+
+preprocess_for_visualization: retains the Gaussian+Otsu pipeline for display purposes only.
 """
 
 import cv2
@@ -60,7 +58,12 @@ def normalize_and_resize(img: np.ndarray) -> np.ndarray:
 
 def preprocess_for_model(image_path: str):
     """
-    Full preprocessing pipeline → returns a PyTorch tensor ready for the model.
+    Preprocessing pipeline aligned with training transforms → returns a PyTorch
+    tensor ready for the model.
+
+    Pipeline: open → resize 224×224 → 3-channel grayscale → ToTensor → Normalize.
+    Must match WriterPairDataset's transform exactly; divergence causes a
+    train/inference distribution mismatch that suppresses AUC.
 
     Args:
         image_path: Path to the uploaded handwriting image.
@@ -68,24 +71,22 @@ def preprocess_for_model(image_path: str):
     Returns:
         torch.Tensor of shape (1, 3, 224, 224)
     """
-    img = load_image(image_path)
-    img = to_grayscale(img)
-    img = denoise(img)
-    img = binarize(img)
-    img = normalize_and_resize(img)
-
-    # Convert to PIL for torchvision transforms
-    pil_img = Image.fromarray(img)
-
     transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.Grayscale(num_output_channels=3),
         transforms.ToTensor(),
-        # ImageNet normalization (standard for ResNet50 pretrained weights)
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
+                             std=[0.229, 0.224, 0.225]),
     ])
-
-    tensor = transform(pil_img).unsqueeze(0)  # Add batch dimension → (1, 3, 224, 224)
-    return tensor
+    if image_path.lower().endswith(".pdf"):
+        import fitz
+        doc = fitz.open(image_path)
+        pix = doc[0].get_pixmap(dpi=150)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        doc.close()
+    else:
+        img = Image.open(image_path).convert("RGB")
+    return transform(img).unsqueeze(0)  # shape (1, 3, 224, 224)
 
 
 def preprocess_for_visualization(image_path: str) -> np.ndarray:

@@ -10,6 +10,7 @@ Combines:
 Final feature vector = concatenation of CNN features + HOG features.
 """
 
+import os
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -81,17 +82,26 @@ def extract_cnn_features(image_tensor: torch.Tensor,
 
 def extract_hog_features(image_path: str) -> np.ndarray:
     """
-    Extract HOG (Histogram of Oriented Gradients) features from an image.
+    Extract HOG (Histogram of Oriented Gradients) features from an image or PDF.
     HOG captures stroke direction and local texture — useful for handwriting style.
 
     Args:
-        image_path: Path to the original (or preprocessed) image.
+        image_path: Path to a PNG/JPG image or a PDF (first page is used).
 
     Returns:
         1D numpy array of HOG feature descriptors.
     """
-    img = cv2.imread(image_path)
-    img = cv2.resize(img, Config.IMAGE_SIZE)
+    if image_path.lower().endswith(".pdf"):
+        import fitz
+        doc = fitz.open(image_path)
+        pix = doc[0].get_pixmap(dpi=150)
+        # fitz returns RGB; convert to BGR so the existing flip below works uniformly
+        img_rgb = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+        doc.close()
+        img = cv2.resize(img_rgb[:, :, ::-1], Config.IMAGE_SIZE)  # store as BGR
+    else:
+        img = cv2.imread(image_path)
+        img = cv2.resize(img, Config.IMAGE_SIZE)
     img_gray = color.rgb2gray(img[:, :, ::-1])  # Convert BGR→RGB→gray for skimage
 
     features, _ = hog(
@@ -108,6 +118,93 @@ def extract_hog_features(image_path: str) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Combined Hybrid Feature Extraction
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Siamese Embedding Network (trained for writer verification)
+# ---------------------------------------------------------------------------
+
+class WriterEmbeddingNet(nn.Module):
+    """
+    ResNet50 backbone with a 256-dim projection head.
+    This is the trainable model — weights are learned via contrastive loss.
+    """
+
+    def __init__(self):
+        super().__init__()
+        backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+        self.features = nn.Sequential(*list(backbone.children())[:-1])
+        self.embed = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        return self.embed(x)
+
+
+_siamese_extractor = None
+
+
+def get_siamese_extractor(device: str = "cpu", model_path: str = None) -> WriterEmbeddingNet:
+    """Return a cached WriterEmbeddingNet, loading weights if a path is given."""
+    global _siamese_extractor
+    if _siamese_extractor is None:
+        _siamese_extractor = WriterEmbeddingNet()
+        if model_path and os.path.isfile(model_path):
+            state = torch.load(model_path, map_location=device)
+            _siamese_extractor.load_state_dict(state)
+            print(f"[WriterEmbeddingNet] Loaded trained weights from: {model_path}")
+        else:
+            print(f"[WriterEmbeddingNet] WARNING: no weights loaded "
+                  f"(model_path={model_path!r}). Using random initialisation.")
+        _siamese_extractor.eval()
+        _siamese_extractor.to(device)
+    return _siamese_extractor
+
+
+def extract_siamese_features(image_tensor: torch.Tensor,
+                              extractor: WriterEmbeddingNet,
+                              device: str = "cpu") -> np.ndarray:
+    """Run the Siamese net on a preprocessed image tensor, return 256-d numpy array."""
+    extractor.eval()
+    image_tensor = image_tensor.to(device)
+    with torch.no_grad():
+        embedding = extractor(image_tensor)
+    return embedding.squeeze().cpu().numpy()
+
+
+def extract_siamese_hybrid_features(image_path: str,
+                                     image_tensor: torch.Tensor,
+                                     device: str,
+                                     model_path: str) -> np.ndarray:
+    """
+    Compute the 26500-d hybrid feature vector used by the live app and evaluate.py.
+
+    Mirrors evaluate.py's cache_features() exactly:
+      - Siamese (256-d, L2-normalised) from the trained WriterEmbeddingNet
+      - HOG (26244-d, L2-normalised)
+      - Concatenated → 26500-d
+
+    Args:
+        image_path:   Path to the image/PDF (for HOG).
+        image_tensor: Preprocessed tensor shape (1,3,224,224) (for Siamese).
+        device:       "cuda" or "cpu".
+        model_path:   Path to saved_models/writer_verification_model.pth.
+
+    Returns:
+        1D numpy array of shape (26500,).
+    """
+    extractor = get_siamese_extractor(device, model_path)
+    s = extract_siamese_features(image_tensor, extractor, device)
+    h = extract_hog_features(image_path)
+    s = s / (np.linalg.norm(s) + 1e-8)
+    h = h / (np.linalg.norm(h) + 1e-8)
+    return np.concatenate([s, h])
+
 
 _cnn_extractor = None  # Singleton — loaded once per process
 

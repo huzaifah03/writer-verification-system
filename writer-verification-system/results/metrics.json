@@ -1,0 +1,120 @@
+{
+  "n_test_writers": 98,
+  "n_pairs": 1960,
+  "n_same": 980,
+  "n_different": 980,
+  "default_threshold": 0.764,
+  "modes": {
+    "hybrid": {
+      "auc": 0.8918,
+      "at_default_threshold": {
+        "threshold": 0.764,
+        "accuracy": 0.601,
+        "precision": 0.9342,
+        "recall": 0.2173,
+        "f1": 0.3526,
+        "confusion_matrix": [
+          [
+            965,
+            15
+          ],
+          [
+            767,
+            213
+          ]
+        ]
+      },
+      "at_optimal_threshold": {
+        "threshold": 0.6234,
+        "accuracy": 0.8143,
+        "precision": 0.7895,
+        "recall": 0.8571,
+        "f1": 0.8219,
+        "confusion_matrix": [
+          [
+            756,
+            224
+          ],
+          [
+            140,
+            840
+          ]
+        ]
+      }
+    },
+    "siamese": {
+      "auc": 0.9043,
+      "at_default_threshold": {
+        "threshold": 0.764,
+        "accuracy": 0.8235,
+        "precision": 0.7963,
+        "recall": 0.8694,
+        "f1": 0.8312,
+        "confusion_matrix": [
+          [
+            762,
+            218
+          ],
+          [
+            128,
+            852
+          ]
+        ]
+      },
+      "at_optimal_threshold": {
+        "threshold": 0.7984,
+        "accuracy": 0.8276,
+        "precision": 0.8135,
+        "recall": 0.85,
+        "f1": 0.8313,
+        "confusion_matrix": [
+          [
+            789,
+            191
+          ],
+          [
+            147,
+            833
+          ]
+        ]
+      }
+    },
+    "hog": {
+      "auc": 0.5844,
+      "at_default_threshold": {
+        "threshold": 0.764,
+        "accuracy": 0.5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "confusion_matrix": [
+          [
+            980,
+            0
+          ],
+          [
+            980,
+            0
+          ]
+        ]
+      },
+      "at_optimal_threshold": {
+        "threshold": 0.5326,
+        "accuracy": 0.5714,
+        "precision": 0.6182,
+        "recall": 0.3735,
+        "f1": 0.4656,
+        "confusion_matrix": [
+          [
+            754,
+            226
+          ],
+          [
+            614,
+            366
+          ]
+        ]
+      }
+    }
+  }
+}

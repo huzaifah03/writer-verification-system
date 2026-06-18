@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Batch {{ batch.id }}: {{ batch.name }}{% endblock %}
+
+{% block content %}
+
+{# ── PROCESSING STATE ─────────────────────────────────────── #}
+{% if batch.status in ['pending', 'running'] %}
+<div class="res-hero">
+    <div>
+        <div class="hero-tag">Batch · #{{ batch.id }}</div>
+        <h1>Analysis <em>in progress</em>.</h1>
+        <p class="deck">{{ batch.name }} · {{ batch.total_samples }} samples · {{ batch.total_pairs }} pairs queued.</p>
+    </div>
+    <div class="res-stats">
+        <div class="hero-stat"><div class="num">{{ batch.total_samples }}</div><div class="lab">Samples</div></div>
+        <div class="hero-stat"><div class="num">{{ batch.total_pairs }}</div><div class="lab">Total pairs</div></div>
+        <div class="hero-stat"><div class="num flag" id="stat-completed">{{ total_completed }}</div><div class="lab">Pairs done</div></div>
+        <div class="hero-stat"><div class="num">{{ batch.threshold }}</div><div class="lab">Threshold</div></div>
+    </div>
+</div>
+<div class="processing-card">
+    <h2 id="proc-status">{{ 'Running…' if batch.status == 'running' else 'Queued — waiting to start…' }}</h2>
+    <div class="progress-outer">
+        <div class="progress-inner" id="progress-bar" style="width:{{ progress_percent }}%;"></div>
+    </div>
+    <p class="progress-label" id="progress-label">
+        {{ total_completed }} / {{ batch.total_pairs }} pairs completed ({{ progress_percent }}%)
+    </p>
+    <a href="{{ url_for('batch.batch_list') }}" class="btn">← Back to batches</a>
+</div>
+
+{# ── FAILED ────────────────────────────────────────────────── #}
+{% elif batch.status == 'failed' %}
+<div class="res-hero">
+    <div>
+        <div class="hero-tag">Batch · #{{ batch.id }}</div>
+        <h1>Processing <em>failed</em>.</h1>
+        <p class="deck">{{ batch.name }}</p>
+    </div>
+    <div class="res-stats">
+        <div class="hero-stat"><div class="num">{{ batch.total_samples }}</div><div class="lab">Samples</div></div>
+        <div class="hero-stat"><div class="num">{{ batch.total_pairs }}</div><div class="lab">Pairs</div></div>
+        <div class="hero-stat"><div class="num">{{ total_completed }}</div><div class="lab">Completed</div></div>
+        <div class="hero-stat"><div class="num">—</div><div class="lab">Flagged</div></div>
+    </div>
+</div>
+<div class="failed-card">
+    <strong>An error occurred during verification.</strong> Check the server log for details.
+    You may need to re-upload this batch.
+</div>
+<div style="padding:0 32px 32px;"><a href="{{ url_for('batch.batch_list') }}" class="btn">← Back to batches</a></div>
+
+{# ── COMPLETED ─────────────────────────────────────────────── #}
+{% else %}
+{% set flagged_count = all_pairs | selectattr('similarity_score', 'ge', batch.threshold) | list | length %}
+<div class="res-hero">
+    <div>
+        <div class="hero-tag">Batch · #{{ batch.id }} · {{ batch.created_at.strftime('%d %b %Y') }}</div>
+        <h1>{{ batch.name }}<br>flagged <em>{{ batch.flagged_pairs }}</em> pair{{ 's' if batch.flagged_pairs != 1 else '' }}.</h1>
+        <p class="deck">
+            {{ batch.total_samples }} samples submitted.
+            The model evaluated all {{ batch.total_pairs }} possible pairings;
+            {{ batch.flagged_pairs }} exceeded the {{ batch.threshold }} threshold.
+        </p>
+    </div>
+    <div class="res-stats">
+        <div class="hero-stat"><div class="num">{{ batch.total_samples }}</div><div class="lab">Samples</div></div>
+        <div class="hero-stat"><div class="num">{{ batch.total_pairs }}</div><div class="lab">Pairs</div></div>
+        <div class="hero-stat"><div class="num flag">{{ batch.flagged_pairs }}</div><div class="lab">Flagged</div></div>
+        <div class="hero-stat">
+            <div class="num">
+                {% if all_pairs %}{{ "%.2f"|format(all_pairs|sum(attribute='similarity_score') / all_pairs|length) }}{% else %}—{% endif %}
+            </div>
+            <div class="lab">Mean Sim.</div>
+        </div>
+    </div>
+</div>
+
+<!-- Control strip -->
+<div class="control-strip">
+    <div class="ctrl-left">
+        <span>Threshold</span>
+        <strong id="thresholdDisplay">{{ batch.threshold }}</strong>
+        <input type="range" id="thresholdSlider" min="0" max="100"
+               value="{{ (batch.threshold * 100)|int }}" />
+    </div>
+    <div class="ctrl-right">
+        <a href="{{ url_for('batch.batch_export_csv', batch_id=batch.id) }}" class="btn">Export CSV</a>
+        <a href="{{ url_for('batch.batch_new') }}" class="btn primary">+ New Batch</a>
+    </div>
+</div>
+
+<!-- Pair cards -->
+<div class="pairs-section">
+    <div class="section-bar">
+        <h2>Flagged pairs — <span id="flaggedCount">{{ batch.flagged_pairs }}</span></h2>
+        <span class="meta">Sorted · Highest similarity first</span>
+    </div>
+
+    {% if all_pairs %}
+    <div id="pairsContainer">
+        {% for pair in all_pairs %}
+        <div class="pair-card {% if loop.first %}headline{% endif %}"
+             data-score="{{ pair.similarity_score }}">
+            <div class="pair-thumbs">
+                <div class="pair-thumb">
+                    <svg viewBox="0 0 100 50" style="color:{% if loop.first %}white{% else %}var(--ink){% endif %}">
+                        <path d="M5 22 Q 14 14, 22 22 T 38 22 Q 46 26, 52 20 T 70 22 T 95 24"
+                              stroke="currentColor" fill="none" stroke-width="1.6"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M5 36 Q 14 30, 22 34 T 44 33 T 64 34 T 92 35"
+                              stroke="currentColor" fill="none" stroke-width="1.6"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <span class="pair-label">
+                    {{ pair.sample1.original_filename }}
+                    <span class="pair-vs">↔</span>
+                    {{ pair.sample2.original_filename }}
+                </span>
+                <div class="pair-thumb">
+                    <svg viewBox="0 0 100 50" style="color:{% if loop.first %}white{% else %}var(--ink){% endif %}">
+                        <path d="M6 20 Q 13 12, 20 20 T 36 22 Q 44 24, 50 18 T 68 22 T 96 22"
+                              stroke="currentColor" fill="none" stroke-width="1.6"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M6 34 Q 13 28, 20 32 T 42 32 T 62 33 T 90 34"
+                              stroke="currentColor" fill="none" stroke-width="1.6"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="pair-score">{{ "%.2f"|format(pair.similarity_score) }}</div>
+            <div class="badge-wrap">
+                {% if pair.risk_level == 'High' %}
+                    <span class="badge high">High · Same Writer</span>
+                {% elif pair.risk_level == 'Medium' %}
+                    <span class="badge med">Medium · Same</span>
+                {% else %}
+                    <span class="badge low">{{ pair.decision }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <p id="noPairsMsg" class="empty-state hidden">No pairs exceed the current threshold.</p>
+    {% else %}
+    <p class="empty-state">No completed pairs to display.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const batchId     = {{ batch.id }};
+    const status      = "{{ batch.status }}";
+
+    /* ── JS POLLING (pending / running only) ───────────────── */
+    if (status === 'pending' || status === 'running') {
+        const bar      = document.getElementById('progress-bar');
+        const label    = document.getElementById('progress-label');
+        const statComp = document.getElementById('stat-completed');
+        const procStat = document.getElementById('proc-status');
+
+        const poll = setInterval(async () => {
+            try {
+                const res  = await fetch(`/api/batches/${batchId}/status`);
+                const data = await res.json();
+                if (data.error) return;
+
+                const pct = data.progress_percent.toFixed(1);
+                if (bar)      bar.style.width = pct + '%';
+                if (label)    label.textContent = `${data.pairs_completed} / ${data.total_pairs} pairs completed (${pct}%)`;
+                if (statComp) statComp.textContent = data.pairs_completed;
+                if (procStat) procStat.textContent = data.status === 'running' ? 'Running…' : 'Queued — waiting to start…';
+
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(poll);
+                    window.location.reload();
+                }
+            } catch (e) { /* network blip — keep polling */ }
+        }, 5000);
+    }
+
+    /* ── THRESHOLD SLIDER (completed only) ─────────────────── */
+    const slider  = document.getElementById('thresholdSlider');
+    const display = document.getElementById('thresholdDisplay');
+    const counter = document.getElementById('flaggedCount');
+    const cards   = document.querySelectorAll('.pair-card');
+    const noMsg   = document.getElementById('noPairsMsg');
+
+    if (slider && cards.length) {
+        function applyThreshold(thresh) {
+            display.textContent = thresh.toFixed(2);
+            let visible = 0;
+            let isFirst = true;
+            cards.forEach(card => {
+                const score = parseFloat(card.dataset.score);
+                if (score >= thresh) {
+                    card.style.display = '';
+                    /* re-apply headline only to first visible */
+                    if (isFirst) { card.classList.add('headline');    isFirst = false; }
+                    else         { card.classList.remove('headline'); }
+                    visible++;
+                } else {
+                    card.style.display = 'none';
+                    card.classList.remove('headline');
+                }
+            });
+            if (counter) counter.textContent = visible;
+            if (noMsg)   noMsg.classList.toggle('hidden', visible > 0);
+        }
+
+        slider.addEventListener('input', () => {
+            applyThreshold(slider.value / 100);
+        });
+
+        /* initial render at stored threshold */
+        applyThreshold(slider.value / 100);
+    }
+})();
+</script>
+{% endblock %}

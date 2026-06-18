@@ -10,7 +10,7 @@ class Config:
 
     # File uploads
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf"}
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload size
 
     # Database
@@ -23,6 +23,7 @@ class Config:
     # Image preprocessing
     IMAGE_SIZE = (224, 224)  # ResNet50 input size
 
-    # Similarity threshold — tune after model training
+    # Similarity threshold — Run-2 Siamese-only ROC-optimal (Youden J, 256-d embeddings)
+    # Acc=0.828, F1=0.831 on 98 held-out test writers.
     # Scores ABOVE this → Same Writer, BELOW → Different Writer
-    SIMILARITY_THRESHOLD = 0.75
+    SIMILARITY_THRESHOLD = 0.798

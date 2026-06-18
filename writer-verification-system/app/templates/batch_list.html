@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}My Batches{% endblock %}
+
+{% block content %}
+<div class="batch-list-page">
+    <div class="batch-list-header">
+        <h1>My Batches</h1>
+        <a href="{{ url_for('batch.batch_new') }}" class="btn primary">+ New Batch</a>
+    </div>
+
+    {% if batches %}
+    <table class="editorial-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Samples</th>
+                <th>Pairs</th>
+                <th>Flagged</th>
+                <th>Created</th>
+                <th>Completed</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in batches %}
+            <tr>
+                <td class="mono">{{ b.id }}</td>
+                <td class="bold">{{ b.name }}</td>
+                <td>
+                    {% if b.status == 'completed' %}<span class="pill done">Complete</span>
+                    {% elif b.status == 'running'  %}<span class="pill run">Running</span>
+                    {% elif b.status == 'pending'  %}<span class="pill queue">Pending</span>
+                    {% else                        %}<span class="pill failed">Failed</span>{% endif %}
+                </td>
+                <td>{{ b.total_samples }}</td>
+                <td>{{ b.total_pairs }}</td>
+                <td style="{% if b.flagged_pairs > 0 %}color:var(--klein);font-weight:700;{% endif %}">{{ b.flagged_pairs }}</td>
+                <td style="font-size:12px;color:var(--muted);">{{ b.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="font-size:12px;color:var(--muted);">
+                    {% if b.completed_at %}{{ b.completed_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+                </td>
+                <td><a href="{{ url_for('batch.batch_detail', batch_id=b.id) }}" class="btn small">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No batches yet.</p>
+        <p style="margin-top:8px;"><a href="{{ url_for('batch.batch_new') }}">Upload your first batch →</a></p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
